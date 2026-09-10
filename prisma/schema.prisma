@@ -1,0 +1,92 @@
+// Prisma schema for Karmei Gat Apartment Finder & Reminder System
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "darwin-arm64", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PropertyStatus {
+  NEW          // חדש
+  RELEVANT     // רלוונטי
+  NOT_RELEVANT // לא רלוונטי
+  NEEDS_CHECK  // דרוש בדיקה
+  CHECK_LATER  // אפשרות בדיקה בהמשך
+}
+
+model Property {
+  id               String         @id // Realta unique ID (e.g. "122600") to prevent duplicates
+  city             String         @default("קרית גת")
+  citySlug         String         @default("kiryat-gat")
+  district         String         @default("כרמי גת")
+  districtSlug     String         @default("karmei-gat")
+  street           String?
+  price            Int?
+  rooms            Float?
+  sqm              Int?
+  floor            Int?
+  floorsTotal      Int?
+  propertyType     String?
+  source           String?
+  publishedAt      DateTime?
+  updatedAt        DateTime?
+  propertyTax      Int?
+  amenities        String[]       @default([])
+  images           String[]       @default([])
+  lat              Float?
+  lon              Float?
+  url              String
+  
+  // Status & User workflow
+  status           PropertyStatus @default(NEW)
+  followUpDate     DateTime?      // תאריך חזרה לבדיקה בהמשך
+  followUpNotified Boolean        @default(false)
+  notes            String?        // הערות המשתמש לדירה
+  
+  // Timestamps
+  firstSeenAt      DateTime       @default(now())
+  lastSeenAt       DateTime       @default(now())
+  isArchived       Boolean        @default(false)
+
+  reminders        Reminder[]
+
+  @@index([status])
+  @@index([followUpDate])
+  @@index([price])
+  @@index([rooms])
+}
+
+model Reminder {
+  id          String    @id @default(uuid())
+  title       String
+  note        String?
+  dueDate     DateTime
+  isCompleted Boolean   @default(false)
+  isNotified  Boolean   @default(false)
+  
+  propertyId  String?
+  property    Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([dueDate, isNotified])
+  @@index([isCompleted])
+}
+
+model SyncLog {
+  id           String    @id @default(uuid())
+  status       String    // "SUCCESS" | "ERROR"
+  totalFound   Int       @default(0)
+  newAdded     Int       @default(0)
+  updatedCount Int       @default(0)
+  errorMessage String?
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  @@index([startedAt])
+}
